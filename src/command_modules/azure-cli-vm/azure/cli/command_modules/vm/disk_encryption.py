@@ -291,16 +291,22 @@ def show_vm_encryption_status(cmd, resource_group_name, vm_name):
         else:
             encryption_status['dataDisk'] = 'Unknown'
     else:
-        # Windows - get os and data volume encryption state from the vm model
-        if (encryption_status['osDiskEncryptionSettings'].enabled and
-                encryption_status['osDiskEncryptionSettings'].disk_encryption_key.secret_url):
-            encryption_status['osDisk'] = _STATUS_ENCRYPTED
-
-        if extension_result.provisioning_state == 'Succeeded':
-            volume_type = extension_result.settings.get('VolumeType', None)
-            about_data_disk = not volume_type or volume_type.lower() != 'os'
-            if about_data_disk and extension_result.settings.get('EncryptionOperation', None) == 'EnableEncryption':
-                encryption_status['dataDisk'] = _STATUS_ENCRYPTED
+        # Windows - try getting os and data volume encryption state from the vm model
+        try:
+            if (encryption_status['osDiskEncryptionSettings'].enabled and
+                    encryption_status['osDiskEncryptionSettings'].disk_encryption_key.secret_url):
+                encryption_status['osDisk'] = _STATUS_ENCRYPTED
+        except Exception: # pylint: disable=broad-except
+            encryption_status['osDisk'] = 'Unknown'
+    
+        try:
+            if extension_result.provisioning_state == 'Succeeded':
+                volume_type = extension_result.settings.get('VolumeType', None)
+                about_data_disk = not volume_type or volume_type.lower() != 'os'
+                if about_data_disk and extension_result.settings.get('EncryptionOperation', None) == 'EnableEncryption':
+                    encryption_status['dataDisk'] = _STATUS_ENCRYPTED
+        except Exception: # pylint: disable=broad-except
+            encryption_status['dataDisk'] = 'Unknown'
 
     return encryption_status
 
